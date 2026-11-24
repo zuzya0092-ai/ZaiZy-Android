@@ -579,4 +579,5 @@
 
     <string name="zaizy_confirm_paste">Do you want to paste from the clipboard?</string>
     <string name="zaizy_paste">Paste</string>
+    <string name="zaizy_account">Account</string>
 </resources>

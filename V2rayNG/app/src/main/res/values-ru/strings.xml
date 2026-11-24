@@ -582,4 +582,5 @@
 
     <string name="zaizy_confirm_paste">Вы действительно хотите вставить?</string>
     <string name="zaizy_paste">Вставить</string>
+    <string name="zaizy_account">Личный кабинет</string>
 </resources>

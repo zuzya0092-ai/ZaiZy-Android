@@ -192,6 +192,27 @@ fun MainScreen(
                 onNavigate = { route ->
                     scope.launch { drawerState.close() }
                     onNavigate(route)
+                },
+                onSearch = {
+                    scope.launch {
+                        drawerState.close()
+                        showSearch = true
+                    }
+                },
+                onMoreMenuAction = { action ->
+                    scope.launch { drawerState.close() }
+                    when (action) {
+                        MainMoreMenuAction.RestartService -> onAction(MainAction.RestartService)
+                        MainMoreMenuAction.DeleteAll -> showDelAllConfirm = true
+                        MainMoreMenuAction.DeleteDuplicate -> showDelDuplicateConfirm = true
+                        MainMoreMenuAction.DeleteInvalid -> showDelInvalidConfirm = true
+                        MainMoreMenuAction.ExportAll -> onAction(MainAction.ExportAll)
+                        MainMoreMenuAction.LocateSelected -> onAction(MainAction.LocateSelectedServer)
+                        MainMoreMenuAction.SortByTestResults -> onAction(MainAction.SortByTestResults)
+                        MainMoreMenuAction.TestAll -> onAction(MainAction.TestAllServers)
+                        MainMoreMenuAction.TestAllRealPing -> onAction(MainAction.TestRealAllServers)
+                        MainMoreMenuAction.UpdateSubscriptions -> onAction(MainAction.UpdateSubscriptions)
+                    }
                 }
             )
         }
@@ -212,23 +233,8 @@ fun MainScreen(
                         onAction(MainAction.Search(""))
                         showSearch = false
                     },
-                    onSearchToggle = { show: Boolean -> showSearch = show },
                     onMenuClick = { scope.launch { drawerState.open() } },
-                    onAction = onAction,
-                    onMoreMenuAction = { action ->
-                        when (action) {
-                            MainMoreMenuAction.RestartService -> onAction(MainAction.RestartService)
-                            MainMoreMenuAction.DeleteAll -> showDelAllConfirm = true
-                            MainMoreMenuAction.DeleteDuplicate -> showDelDuplicateConfirm = true
-                            MainMoreMenuAction.DeleteInvalid -> showDelInvalidConfirm = true
-                            MainMoreMenuAction.ExportAll -> onAction(MainAction.ExportAll)
-                            MainMoreMenuAction.LocateSelected -> onAction(MainAction.LocateSelectedServer)
-                            MainMoreMenuAction.SortByTestResults -> onAction(MainAction.SortByTestResults)
-                            MainMoreMenuAction.TestAll -> onAction(MainAction.TestAllServers)
-                            MainMoreMenuAction.TestAllRealPing -> onAction(MainAction.TestRealAllServers)
-                            MainMoreMenuAction.UpdateSubscriptions -> onAction(MainAction.UpdateSubscriptions)
-                        }
-                    }
+                    onAction = onAction
                 )
             },
             floatingActionButton = {},

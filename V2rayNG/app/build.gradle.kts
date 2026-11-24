@@ -13,8 +13,8 @@ android {
         applicationId = "app.zaizy.vpn"
         minSdk = 24
         targetSdk = 37
-        versionCode = 761
-        versionName = "2.4.1"
+        versionCode = 762
+        versionName = "2.4.2"
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
         splits {

@@ -4,6 +4,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -21,6 +23,10 @@ import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -60,7 +66,13 @@ private val drawerItems = primaryDrawerItems + listOf(
 )
 
 @Composable
-fun MainDrawerContent(drawerState: DrawerState, onNavigate: (MainDestination) -> Unit) {
+fun MainDrawerContent(
+    drawerState: DrawerState,
+    onNavigate: (MainDestination) -> Unit,
+    onSearch: () -> Unit,
+    onMoreMenuAction: (MainMoreMenuAction) -> Unit
+) {
+    var showMore by remember { mutableStateOf(false) }
     val drawerScrollState = rememberScrollState()
 
     ModalDrawerSheet(
@@ -95,6 +107,28 @@ fun MainDrawerContent(drawerState: DrawerState, onNavigate: (MainDestination) ->
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                }
+            }
+            NavigationDrawerItem(
+                label = { Text(stringResource(R.string.acc_search)) },
+                selected = false,
+                onClick = onSearch,
+                icon = { Icon(painterResource(R.drawable.ic_search_24dp), contentDescription = null) },
+                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+            )
+            Box {
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.acc_more)) },
+                    selected = false,
+                    onClick = { showMore = true },
+                    icon = { Icon(painterResource(R.drawable.ic_more_vert_24dp), contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
+                    MoreMenuContent { action ->
+                        showMore = false
+                        onMoreMenuAction(action)
+                    }
                 }
             }
             drawerItems.forEachIndexed { index, item ->

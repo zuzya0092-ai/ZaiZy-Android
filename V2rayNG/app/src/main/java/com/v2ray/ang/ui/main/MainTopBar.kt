@@ -34,6 +34,9 @@ import com.v2ray.ang.R
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.verticalScrollbar
 
+private const val ACCOUNT_URL = "https://kabinet.zazyvip.site"
+private const val TELEGRAM_URL = "https://t.me/XControlBot_bot"
+
 internal val ZaizyBrandTextStyle = TextStyle(
     color = Color(0xFFFFD47E),
     fontFamily = FontFamily.Serif,
@@ -49,15 +52,11 @@ fun MainTopBar(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onSearchClose: () -> Unit,
-    onSearchToggle: (Boolean) -> Unit,
     onMenuClick: () -> Unit,
-    onAction: (MainAction) -> Unit,
-    onMoreMenuAction: (MainMoreMenuAction) -> Unit
+    onAction: (MainAction) -> Unit
 ) {
     var showImportMenu by remember { mutableStateOf(false) }
-    var showMenu by remember { mutableStateOf(false) }
     val importMenuScrollState = rememberScrollState()
-    val moreMenuScrollState = rememberScrollState()
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val maxMenuHeight = LocalConfiguration.current.screenHeightDp.dp - statusBarHeight - navBarHeight - 20.dp
@@ -91,9 +90,18 @@ fun MainTopBar(
         },
         actions = {
             if (!showSearch) {
-                IconButton(onClick = { onSearchToggle(true) }) {
-                    Icon(painterResource(R.drawable.ic_search_24dp), contentDescription = stringResource(R.string.acc_search))
+                IconButton(onClick = { onAction(MainAction.OpenSubscriptionLink(TELEGRAM_URL)) }) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_telegram_24dp),
+                        contentDescription = "Telegram"
+                    )
                 }
+            }
+            IconButton(onClick = { onAction(MainAction.OpenSubscriptionLink(ACCOUNT_URL)) }) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_zaizy_account),
+                    contentDescription = stringResource(R.string.zaizy_account)
+                )
             }
             Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
                 IconButton(onClick = { showImportMenu = true }) {
@@ -114,25 +122,6 @@ fun MainTopBar(
                             onAction(action)
                         }
                     )
-                }
-            }
-            Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(painterResource(R.drawable.ic_more_vert_24dp), contentDescription = stringResource(R.string.acc_more))
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    scrollState = moreMenuScrollState,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier
-                        .heightIn(max = maxMenuHeight)
-                        .verticalScrollbar(moreMenuScrollState)
-                ) {
-                    MoreMenuContent { action ->
-                        showMenu = false
-                        onMoreMenuAction(action)
-                    }
                 }
             }
         }
