@@ -93,6 +93,19 @@ fun GroupPagerPage(
         mainViewModel.serverGroupState(groupId)
     }
     val groupState by groupStateFlow.collectAsStateWithLifecycle()
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable(groupId) { androidx.compose.runtime.mutableStateOf(true) }
+    var confirmDelete by androidx.compose.runtime.saveable.rememberSaveable(groupId) { androidx.compose.runtime.mutableStateOf(false) }
+    if (confirmDelete) {
+        com.v2ray.ang.ui.compose.DeleteConfirmDialog(
+            message = "Удалить подписку и все её серверы с устройства?",
+            itemName = usageInfo?.title ?: groupTitle,
+            onConfirm = {
+                confirmDelete = false
+                mainViewModel.deleteSubscription(groupId)
+            },
+            onDismiss = { confirmDelete = false }
+        )
+    }
     val canReorder = groupId.isNotEmpty() && searchQuery.isEmpty()
     val actions = remember(
         onSelectServer,
@@ -125,7 +138,7 @@ fun GroupPagerPage(
     }
 
     Box(Modifier.fillMaxSize()) {
-        ServerListPage(
+        if (usageInfo == null || expanded) ServerListPage(
             rows = groupState.rows,
             selectedGuid = selectedGuid,
             locateTarget = locateTarget?.takeIf { it.groupId == groupId },
@@ -144,8 +157,11 @@ fun GroupPagerPage(
         if (usageInfo != null) {
             SubscriptionInfoCard(
                 info = usageInfo,
+                expanded = expanded,
+                onToggle = { expanded = !expanded },
                 fallbackTitle = groupTitle,
-                onOpenLink = onOpenLink,
+                onDelete = { confirmDelete = true },
+                onPing = { mainViewModel.testAllRealPing(subscriptionId = groupId) },
                 onRefresh = { mainViewModel.onAction(MainAction.UpdateGroupSubscription(groupId)) },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -214,7 +230,7 @@ private fun ServerListPage(
                     ) { isDragging ->
                         ReorderableGridItem(
                             scope = this,
-                            isDragging = isDragging
+                            containerColor = androidx.compose.ui.graphics.Color.Transparent, isDragging = isDragging
                         ) { content() }
                     }
                 } else {
@@ -253,7 +269,7 @@ private fun ServerListPage(
                         Column {
                             ReorderableListItem(
                                 scope = itemScope,
-                                isDragging = isDragging
+                                containerColor = androidx.compose.ui.graphics.Color.Transparent, isDragging = isDragging
                             ) {
                                 ServerItemRow(
                                     row = row,
@@ -361,7 +377,12 @@ private fun ServerListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min)
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(13.dp))
+            .background(
+                if (isSelected) androidx.compose.ui.graphics.Color(0x803BAEFF)
+                else androidx.compose.ui.graphics.Color.Transparent
+            )
             .semantics {
                 if (selectedStateDescription != null) {
                     stateDescription = selectedStateDescription
@@ -369,100 +390,17 @@ private fun ServerListItem(
             }
             .clickable { actions.select(row.guid) }
     ) {
-        Box(
-            Modifier
-                .width(10.dp)
-                .fillMaxHeight()
-        ) {
-            if (isSelected) {
-                Row {
-                    Spacer(Modifier.width(6.dp))
-                    Box(
-                        Modifier
-                            .width(4.dp)
-                            .fillMaxHeight()
-                            .padding(vertical = 10.dp)
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
-                }
-            }
-        }
-
         Column(
             Modifier
                 .weight(1f)
-                .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+                .padding(start = 8.dp, end = 12.dp, top = 15.dp, bottom = 15.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(row.remarks, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Paragraph), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (doubleColumnDisplay) {
-                    IconButton(onClick = { actions.more(row.guid, row.profile) }, Modifier.size(36.dp)) {
-                        Icon(
-                            painterResource(R.drawable.ic_more_vert_24dp),
-                            stringResource(R.string.acc_more),
-                            Modifier.size(24.dp)
-                        )
-                    }
-                } else {
-                    IconButton(onClick = { actions.share(row.guid, row.profile) }, Modifier.size(36.dp)) {
-                        Icon(
-                            painterResource(R.drawable.ic_share_24dp),
-                            stringResource(R.string.title_configuration_share),
-                            Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(onClick = { actions.edit(row.guid, row.profile) }, Modifier.size(36.dp)) {
-                        Icon(
-                            painterResource(R.drawable.ic_edit_24dp),
-                            stringResource(R.string.acc_edit),
-                            Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(onClick = { actions.remove(row.guid, row.remarks) }, Modifier.size(36.dp)) {
-                        Icon(
-                            painterResource(R.drawable.ic_delete_24dp),
-                            stringResource(R.string.acc_delete),
-                            Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (row.subscriptionBadge.isNotBlank()) {
-                    Box(
-                        Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)), Alignment.Center
-                    ) {
-                        Text(row.subscriptionBadge.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                Text(
-                    row.statistics,
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    row.typeDescription,
-                    modifier = Modifier.weight(1f, fill = false),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorConfigType,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
+                Text(row.remarks, Modifier.weight(1f), color = androidx.compose.ui.graphics.Color.White, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Paragraph, shadow = androidx.compose.ui.graphics.Shadow(androidx.compose.ui.graphics.Color.Black, androidx.compose.ui.geometry.Offset(0f, 2f), 6f)), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (testResult.isNotEmpty())                 Text(
                     testResult,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (row.testDelayMillis < 0L) colorPingRed else colorPing,
+                    color = if (isSelected) androidx.compose.ui.graphics.Color.White else if (row.testDelayMillis < 0L) colorPingRed else colorPing,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

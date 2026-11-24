@@ -167,12 +167,25 @@ object HttpUtil {
                 .header("User-agent", finalUserAgent)
                 .header("Connection", "close")
 
+            if (onResponseHeaders != null && currentUrl.startsWith("https://", ignoreCase = true) &&
+                java.net.URI(currentUrl).host.equals(java.net.URI(request.url).host, ignoreCase = true)) {
+                val resolver = com.v2ray.ang.AngApplication.application.contentResolver
+                val deviceId = android.provider.Settings.Secure.getString(resolver, android.provider.Settings.Secure.ANDROID_ID)
+                if (!deviceId.isNullOrEmpty()) {
+                    val scopedId = java.security.MessageDigest.getInstance("SHA-256")
+                        .digest((java.net.URI(currentUrl).host.lowercase() + "|" + deviceId).toByteArray())
+                        .joinToString("") { "%02x".format(it) }
+                    requestBuilder.header("x-hwid", scopedId)
+                        .header("x-device-os", "Android")
+                        .header("x-ver-os", android.os.Build.VERSION.RELEASE)
+                        .header("x-device-model", android.os.Build.MODEL)
+                }
+            }
             applyEmbeddedBasicAuthHeader(currentUrl, requestBuilder)
 
 
             val headersMap = JsonUtil.parseHeadersToMap(request.requestHeaders)
             for ((key, value) in headersMap) {
-                LogUtil.d(AppConfig.TAG, "Adding custom header: $key = $value")
                 try {
                     requestBuilder.header(key, value)
                 } catch (_: IllegalArgumentException) {

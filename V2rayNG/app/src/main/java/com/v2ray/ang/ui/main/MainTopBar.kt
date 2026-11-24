@@ -12,6 +12,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,13 +20,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.v2ray.ang.R
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.verticalScrollbar
+
+internal val ZaizyBrandTextStyle = TextStyle(
+    color = Color(0xFFFFD47E),
+    fontFamily = FontFamily.Serif,
+    fontWeight = FontWeight.Bold,
+    fontStyle = FontStyle.Italic,
+    letterSpacing = 0.35.sp
+)
 
 @Composable
 fun MainTopBar(
@@ -48,7 +63,14 @@ fun MainTopBar(
     val maxMenuHeight = LocalConfiguration.current.screenHeightDp.dp - statusBarHeight - navBarHeight - 20.dp
 
     AppTopBar(
-        title = stringResource(R.string.title_server),
+        title = stringResource(R.string.app_name),
+        titleContent = {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.titleLarge.merge(ZaizyBrandTextStyle).copy(fontSize = 28.sp),
+                maxLines = 1
+            )
+        },
         onBackClick = {},
         isLoading = isLoading,
         isSearchActive = showSearch,

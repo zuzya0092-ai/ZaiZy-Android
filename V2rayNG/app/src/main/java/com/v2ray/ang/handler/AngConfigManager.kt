@@ -331,50 +331,31 @@ object AngConfigManager {
         if (server == null) {
             return 0
         }
-        if (server.contains("inbounds")
-            && server.contains("outbounds")
-            && server.contains("routing")
-        ) {
+        if (server.contains("outbounds")) {
             try {
-                val serverList: Array<Any> =
-                    JsonUtil.fromJson(server, Array<Any>::class.java) ?: arrayOf()
+                val root = com.google.gson.JsonParser.parseString(server)
+                val profiles = if (root.isJsonArray) root.asJsonArray.toList() else listOf(root)
+                if (profiles.isEmpty() || profiles.any { profile ->
+                        !profile.isJsonObject || profile.asJsonObject.get("outbounds")?.let {
+                            it.isJsonArray && it.asJsonArray.size() > 0
+                        } != true
+                    }) return 0
 
-                if (serverList.isNotEmpty()) {
-                    val configs = serverList.reversed().map { srv ->
-                        val config = CustomFmt.parse(JsonUtil.toJson(srv))
-                        config.subscriptionId = subid
-                        config.description = generateDescription(config)
-                        ParsedProfile(
-                            profile = config,
-                            rawConfig = JsonUtil.toJsonPretty(srv) ?: "",
-                        )
-                    }
-                    commitProfiles(configs, subid, append)
-                    return configs.size
+                val configs = profiles.asReversed().map { profile ->
+                    val raw = if (root.isJsonArray) profile.toString() else server
+                    val config = CustomFmt.parse(raw)
+                    config.subscriptionId = subid
+                    config.description = generateDescription(config)
+                    ParsedProfile(config, raw)
                 }
+                commitProfiles(configs, subid, append)
+                return configs.size
             } catch (e: ProfileStorageException) {
                 throw e
             } catch (e: Exception) {
-                LogUtil.e(AppConfig.TAG, "Failed to parse custom config server JSON array", e)
+                LogUtil.e(AppConfig.TAG, "Invalid Xray JSON profile", e)
+                return 0
             }
-
-            try {
-                // For compatibility
-                val config = CustomFmt.parse(server)
-                config.subscriptionId = subid
-                config.description = generateDescription(config)
-                commitProfiles(
-                    configs = listOf(ParsedProfile(config, server)),
-                    subid = subid,
-                    append = append,
-                )
-                return 1
-            } catch (e: ProfileStorageException) {
-                throw e
-            } catch (e: Exception) {
-                LogUtil.e(AppConfig.TAG, "Failed to parse custom config server as single config", e)
-            }
-            return 0
         } else if (!server.contains("outbounds") && server.contains("protocol")) {
             try {
                 val (config, rawOutbound) = CustomOutboundFmt.parse(server)
@@ -505,7 +486,6 @@ object AngConfigManager {
                     return SubscriptionUpdateResult(failureCount = 1)
                 }
             }
-            LogUtil.i(AppConfig.TAG, url)
             val userAgent = it.subscription.userAgent
             val requestHeaders = it.subscription.requestHeaders
             val proxyUsername = SettingsManager.getSocksUsername()
@@ -537,7 +517,7 @@ object AngConfigManager {
                     captureUsageInfo
                 )
             } catch (e: Exception) {
-                LogUtil.e(AppConfig.ANG_PACKAGE, "Update subscription: proxy not ready or other error", e)
+                LogUtil.w(AppConfig.ANG_PACKAGE, "Subscription request through local proxy failed")
                 ""
             }
             if (configText.isEmpty()) {
@@ -551,7 +531,7 @@ object AngConfigManager {
                         captureUsageInfo
                     )
                 } catch (e: Exception) {
-                    LogUtil.e(AppConfig.TAG, "Update subscription: Failed to get URL content with user agent", e)
+                    LogUtil.w(AppConfig.TAG, "Direct subscription request failed")
                     ""
                 }
             }

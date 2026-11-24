@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">v2rayNG</string>
+    <string name="app_name" translatable="false">ZaiZy</string>
     <string name="app_widget_name">v2rayNG</string>
     <string name="app_tile_name">v2rayNG</string>
     <string name="app_tile_first_use">Добавьте профиль в приложении перед использованием этой функции.</string>
@@ -421,6 +421,7 @@
     <string name="connection_test_fail">Интернет недоступен</string>
     <string name="connection_test_error_status_code">Код ошибки: #%d</string>
     <string name="connection_connected">Подключено.\nНажмите, чтобы проверить соединение.</string>
+    <string name="zaizy_connection_connected">Подключено</string>
     <string name="connection_not_connected">Нет соединения</string>
     <string name="connection_running_task_left">Выполняется проверок: %s</string>
 
@@ -579,4 +580,6 @@
     <string name="sub_info_open_page">Открыть страницу подписки</string>
     <string name="sub_info_unlimited">Без ограничений</string>
 
+    <string name="zaizy_confirm_paste">Вы действительно хотите вставить?</string>
+    <string name="zaizy_paste">Вставить</string>
 </resources>

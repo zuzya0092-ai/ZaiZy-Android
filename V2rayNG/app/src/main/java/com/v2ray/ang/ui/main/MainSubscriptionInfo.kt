@@ -38,7 +38,7 @@ import com.v2ray.ang.util.Utils
 private const val MILLIS_PER_SECOND = 1000L
 private const val EXPIRY_DATE_PATTERN = "yyyy-MM-dd"
 private const val NO_EXPIRY_SYMBOL = "\u221E"
-private const val CARD_ALPHA = 0.97f
+internal val SubscriptionMint = androidx.compose.ui.graphics.Color(0xFF53E995)
 
 /** Locale-neutral values the subscription information box renders. */
 internal data class SubscriptionInfoUiModel(
@@ -87,53 +87,50 @@ internal fun buildSubscriptionInfoUiModel(
 internal fun SubscriptionInfoCard(
     info: SubscriptionUsageInfo,
     fallbackTitle: String,
-    onOpenLink: (String) -> Unit,
+    onDelete: () -> Unit,
+    onPing: () -> Unit,
     onRefresh: () -> Unit,
+    expanded: Boolean,
+    onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val model = remember(info) { buildSubscriptionInfoUiModel(info, System.currentTimeMillis()) }
 
     Surface(
+        onClick = onToggle,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp),
         shape = MaterialTheme.shapes.medium,
-        // Almost opaque: the list scrolls underneath without showing through readably.
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = CARD_ALPHA),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+
+        color = SubscriptionMint.copy(alpha = 0.39f),
+        contentColor = androidx.compose.ui.graphics.Color.White,
+        border = BorderStroke(0.5.dp, SubscriptionMint.copy(alpha = 0.70f)),
     ) {
         Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 2.dp, bottom = 10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = model.title ?: fallbackTitle,
+                    text = (if (expanded) "▾  " else "▸  ") + (model.title ?: fallbackTitle),
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                model.supportUrl?.let { url ->
-                    CardIconButton(
-                        iconRes = if (SubscriptionInfoParser.isTelegramLink(url)) {
-                            R.drawable.ic_telegram_24dp
-                        } else {
-                            R.drawable.ic_feedback_24dp
-                        },
-                        contentDescription = stringResource(R.string.sub_info_open_support),
-                        onClick = { onOpenLink(url) },
-                    )
-                }
-                model.webPageUrl?.let { url ->
-                    CardIconButton(
-                        iconRes = R.drawable.ic_about_24dp,
-                        contentDescription = stringResource(R.string.sub_info_open_page),
-                        onClick = { onOpenLink(url) },
-                    )
-                }
                 CardIconButton(
                     iconRes = R.drawable.ic_refresh_24dp,
                     contentDescription = stringResource(R.string.title_sub_update),
                     onClick = onRefresh,
+                )
+                CardIconButton(
+                    iconRes = R.drawable.ic_zaizy_ping,
+                    contentDescription = "Проверить пинг серверов",
+                    onClick = onPing,
+                )
+                CardIconButton(
+                    iconRes = R.drawable.ic_delete_24dp,
+                    contentDescription = "Удалить подписку",
+                    onClick = onDelete,
                 )
             }
 

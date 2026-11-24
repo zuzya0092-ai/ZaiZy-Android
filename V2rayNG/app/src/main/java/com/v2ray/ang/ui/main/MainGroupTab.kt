@@ -195,7 +195,9 @@ private fun GroupTabItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = group.remarks,
+            text = if (group.remarks.equals("import sub", ignoreCase = true)) {
+                group.usageInfo?.title?.takeIf { it.isNotBlank() } ?: "Моя подписка"
+            } else group.remarks,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Medium,
             color = if (selected) colors.primary else colors.onSurfaceVariant,

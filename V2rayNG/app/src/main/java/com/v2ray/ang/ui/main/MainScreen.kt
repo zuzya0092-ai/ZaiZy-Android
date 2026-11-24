@@ -1,5 +1,16 @@
 package com.v2ray.ang.ui.main
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,16 +42,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.ui.compose.LocalDarkTheme
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import android.os.SystemClock
+import java.util.Locale
 
 @Composable
 fun MainScreen(
@@ -57,7 +75,6 @@ fun MainScreen(
     val confirmRemove = uiState.confirmRemove
     val shareQRCodeBitmap = uiState.shareQRCodeBitmap
 
-    val isDarkTheme = LocalDarkTheme.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var showSearch by remember { mutableStateOf(false) }
@@ -114,6 +131,27 @@ fun MainScreen(
                     onAction(MainAction.SelectGroup(currentGroups[page].id))
                 }
             }
+    }
+
+    var confirmClipboardImport by rememberSaveable { mutableStateOf(false) }
+    if (confirmClipboardImport) {
+        AlertDialog(
+            onDismissRequest = { confirmClipboardImport = false },
+            title = { Text(stringResource(R.string.zaizy_confirm_paste)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmClipboardImport = false
+                    onAction(MainAction.ImportClipboard)
+                }) {
+                    Text(stringResource(R.string.zaizy_paste))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClipboardImport = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
     }
 
     MainDialogs(
@@ -199,6 +237,12 @@ fun MainScreen(
             val bottomBarHeight = with(LocalDensity.current) { bottomBarHeightPx.toDp() }
 
             Box(Modifier.fillMaxSize()) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(com.v2ray.ang.R.drawable.zaizy_city),
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
             if (groups.isNotEmpty()) {
                 Column(
                     modifier = Modifier
@@ -210,22 +254,27 @@ fun MainScreen(
                             end = innerPadding.calculateEndPadding(layoutDirection)
                         )
                 ) {
-                    if (groups.size > 1) {
-                        GroupTabBar(
-                            groups = groups,
-                            selectedTabIndex = pagerState.currentPage.coerceIn(0, groups.lastIndex),
-                            mainViewModel = mainViewModel,
-                            onTabClick = { targetIndex ->
-                                scope.launch {
-                                    pagerState.navigateToPageOptimized(
-                                        targetPage = targetIndex,
-                                        animateAdjacentPage = true
-                                    )
-                                }
-                            }
+                    Column(
+                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        VpnShield(
+                            isRunning = isRunning,
+                            onClick = { onAction(MainAction.ToggleService) },
+                            modifier = Modifier.size(
+                                if (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 630) 142.dp else 204.dp
+                            )
                         )
+                        Text(
+                            text = if (uiState.status == MainStatus.Connected) {
+                                connectedStatusText(uiState.sessionStartedAt)
+                            } else {
+                                displayText
+                            },
+                            style = MaterialTheme.typography.bodyLarge.merge(ZaizyBrandTextStyle),
+                            modifier = Modifier.background(androidx.compose.ui.graphics.Color(0xD9121932),
+                                androidx.compose.foundation.shape.CircleShape).padding(horizontal = 12.dp, vertical = 3.dp))
                     }
-
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize(),
@@ -266,16 +315,50 @@ fun MainScreen(
                     }
                 }
             }
-            MainBottomBar(
-                displayText = displayText,
-                isRunning = isRunning,
-                isDarkTheme = isDarkTheme,
-                onAction = onAction,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .onSizeChanged { bottomBarHeightPx = it.height }
-            )
+            Row(
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .padding(bottom = innerPadding.calculateBottomPadding())
+                    .onSizeChanged { bottomBarHeightPx = it.height },
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                val colors = ButtonDefaults.buttonColors(
+                    containerColor = SubscriptionMint.copy(alpha = 0.34f),
+                    contentColor = Color.White
+                )
+                val border = BorderStroke(0.5.dp, SubscriptionMint.copy(alpha = 0.70f))
+                Button(
+                    onClick = { confirmClipboardImport = true },
+                    shape = MaterialTheme.shapes.medium,
+                    colors = colors,
+                    border = border
+                ) { Text("Из буфера") }
+                Button(
+                    onClick = { onAction(MainAction.ImportQRcode) },
+                    shape = MaterialTheme.shapes.medium,
+                    colors = colors,
+                    border = border
+                ) { Text("QR-код") }
+            }
             }
         }
     }
+}
+
+@Composable
+private fun connectedStatusText(startedAt: Long?): String {
+    val label = androidx.compose.ui.res.stringResource(com.v2ray.ang.R.string.zaizy_connection_connected)
+    if (startedAt == null) return label
+
+    var now by remember(startedAt) { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    LaunchedEffect(startedAt) {
+        while (true) {
+            now = SystemClock.elapsedRealtime()
+            val elapsedMillis = (now - startedAt).coerceAtLeast(0L)
+            delay(1000L - elapsedMillis % 1000L)
+        }
+    }
+
+    val seconds = (now - startedAt).coerceAtLeast(0L) / 1000L
+    val duration = String.format(Locale.ROOT, "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
+    return "$label · $duration"
 }

@@ -73,6 +73,7 @@ fun AppTopBar(
     onSearchClose: () -> Unit = {},
     searchPlaceholder: String? = null,
     navigationIcon: @Composable (() -> Unit)? = null,
+    titleContent: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     Column {
@@ -85,7 +86,7 @@ fun AppTopBar(
                         placeholder = searchPlaceholder
                     )
                 } else {
-                    Text(text = title)
+                    if (titleContent != null) titleContent() else Text(text = title)
                 }
             },
             navigationIcon = {
@@ -282,11 +283,13 @@ fun ReorderableCollectionItemScope.reorderableDragHandle(): Modifier {
 fun ReorderableListItem(
     scope: ReorderableCollectionItemScope,
     isDragging: Boolean,
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
     content: @Composable RowScope.() -> Unit
 ) {
     val elevation by reorderableElevation(isDragging)
     Surface(
         modifier = Modifier.fillMaxWidth(),
+        color = containerColor,
         shadowElevation = elevation
     ) {
         Row(
@@ -303,6 +306,7 @@ fun ReorderableListItem(
 fun ReorderableGridItem(
     scope: ReorderableCollectionItemScope,
     isDragging: Boolean,
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
     content: @Composable () -> Unit
 ) {
     val elevation by reorderableElevation(isDragging)
@@ -310,6 +314,7 @@ fun ReorderableGridItem(
         modifier = Modifier
             .fillMaxWidth()
             .then(with(scope) { reorderableDragHandle() }),
+        color = containerColor,
         shadowElevation = elevation
     ) {
         content()

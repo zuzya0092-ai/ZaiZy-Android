@@ -57,6 +57,9 @@ object CoreServiceManager {
     @Volatile
     private var isReloading = false
 
+    @Volatile
+    private var sessionStartedAt = 0L
+
     /** Tun descriptor the core was started with, null in the proxy only and root run modes. */
     private var currentVpnInterface: ParcelFileDescriptor? = null
 
@@ -132,7 +135,6 @@ object CoreServiceManager {
 
         LogUtil.i(AppConfig.TAG, "StartCore-Manager: Starting core loop for ${config.remarks}")
         val result = CoreConfigManager.getV2rayConfig(service, guid)
-        LogUtil.d(AppConfig.TAG, result.content)
         if (!result.status) {
             error(result.errorMessage.ifBlank { "Failed to get V2Ray config" })
         }
@@ -178,7 +180,8 @@ object CoreServiceManager {
         }
 
         if (!isReload) {
-            MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_START_SUCCESS, "")
+            sessionStartedAt = android.os.SystemClock.elapsedRealtime()
+            MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_START_SUCCESS, sessionStartedAt)
         }
         NotificationManager.startSpeedNotification()
         LogUtil.i(AppConfig.TAG, "StartCore-Manager: Core started successfully")
@@ -214,6 +217,7 @@ object CoreServiceManager {
             browserDialer = null
         }
 
+        sessionStartedAt = 0L
         MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_STOP_SUCCESS, "")
         NotificationManager.cancelNotification()
 
@@ -480,7 +484,7 @@ object CoreServiceManager {
             when (intent?.getIntExtra("key", 0)) {
                 AppConfig.MSG_REGISTER_CLIENT -> {
                     if (isRunning()) {
-                        MessageHelper.sendMsg2UI(serviceControl.getService(), AppConfig.MSG_STATE_RUNNING, "")
+                        MessageHelper.sendMsg2UI(serviceControl.getService(), AppConfig.MSG_STATE_RUNNING, sessionStartedAt)
                     } else {
                         MessageHelper.sendMsg2UI(serviceControl.getService(), AppConfig.MSG_STATE_NOT_RUNNING, "")
                     }

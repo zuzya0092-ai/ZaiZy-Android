@@ -128,11 +128,11 @@ class MainViewModel(
 
     private fun handleServiceEvent(event: MainServiceEvent) {
         when (event) {
-            MainServiceEvent.StateRunning -> updateRunningState(true, clearTestingText = false)
+            is MainServiceEvent.StateRunning -> updateRunningState(true, clearTestingText = false, startedAt = event.startedAt)
             MainServiceEvent.StateNotRunning -> updateRunningState(false, clearTestingText = false)
-            MainServiceEvent.StateStartSuccess -> {
+            is MainServiceEvent.StateStartSuccess -> {
                 toastSuccess(R.string.toast_services_success)
-                updateRunningState(true)
+                updateRunningState(true, startedAt = event.startedAt)
             }
 
             is MainServiceEvent.StateStartFailure -> {
@@ -455,7 +455,11 @@ class MainViewModel(
                 if (forceRefresh) {
                     cacheMutex.withLock { groupDataCache.clear() }
                 }
-                val groups = dataSource.getSubscriptions().map {
+                val subscriptions = dataSource.getSubscriptions()
+                val groups = subscriptions.filterNot {
+                    it.guid == AppConfig.DEFAULT_SUBSCRIPTION_ID && subscriptions.size > 1 &&
+                        dataSource.getServerGuidList(it.guid).isEmpty()
+                }.map {
                     GroupMapItem(
                         id = it.guid,
                         remarks = it.subscription.remarks,
@@ -835,10 +839,18 @@ class MainViewModel(
         }
     }
 
-    fun testAllRealPing(onlyTcp: Boolean = false) {
+    fun deleteSubscription(groupId: String) {
+        if (groupId.isBlank()) return
+        viewModelScope.launch(ioDispatcher) {
+            com.v2ray.ang.handler.SettingsManager.removeSubscriptionWithDefault(groupId)
+            setupGroupTab(forceRefresh = true)
+        }
+    }
+
+    fun testAllRealPing(onlyTcp: Boolean = false, subscriptionId: String? = null) {
         cancelAllPing()
-        val groupId = uiState.value.selectedGroupId
-        val servers = currentServers()
+        val groupId = subscriptionId ?: uiState.value.selectedGroupId
+        val servers = mutableServerGroupState(groupId).value.servers
         if (servers.isEmpty()) {
             return
         }
@@ -859,7 +871,7 @@ class MainViewModel(
         val message = TestServiceMessage(
             key = AppConfig.MSG_MEASURE_CONFIG_START,
             subscriptionId = groupId,
-            serverGuids = if (keywordFilter.isNotEmpty()) serverGuids else emptyList(),
+            serverGuids = if (subscriptionId == null && keywordFilter.isNotEmpty()) serverGuids else emptyList(),
             onlyTcp = onlyTcp
         )
         _uiState.update {
@@ -928,11 +940,12 @@ class MainViewModel(
     }
 
     // ---------- Running state ----------
-    private fun updateRunningState(running: Boolean, clearTestingText: Boolean = true) {
+    private fun updateRunningState(running: Boolean, clearTestingText: Boolean = true, startedAt: Long? = null) {
         if (!running || clearTestingText) testRequests.invalidateCurrent()
         _uiState.update { state ->
             state.copy(
                 isRunning = running,
+                sessionStartedAt = if (running) startedAt?.takeIf { it > 0L } ?: state.sessionStartedAt else null,
                 isTesting = testRequests.isTesting,
                 status = if (!clearTestingText && state.isRunning == running) state.status
                 else if (running) MainStatus.Connected else MainStatus.Disconnected
