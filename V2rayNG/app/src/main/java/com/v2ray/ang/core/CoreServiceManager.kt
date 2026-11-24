@@ -51,7 +51,9 @@ object CoreServiceManager {
     private var currentConfig: ProfileItem? = null
     private var processFinder: XrayProcessFinder? = null
     private var browserDialer: IDialerService? = null
+    @Volatile
     private var networkMonitor: NetworkMonitor? = null
+    private val reloadStopLock = Any()
     private val connectionTestScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile
@@ -190,41 +192,53 @@ object CoreServiceManager {
     /**
      * Stops the V2Ray core service.
      * Unregisters broadcast receivers, stops notifications, and shuts down plugins.
-     * @return True if the core was stopped successfully, false otherwise.
+     * @param afterCoreStopped Optional main-thread cleanup before reporting the VPN stopped.
+     * @return True if shutdown was scheduled for an active service.
      */
-    fun stopCoreLoop(): Boolean {
+    fun stopCoreLoop(afterCoreStopped: (() -> Unit)? = null): Boolean {
         connectionTestScope.coroutineContext.cancelChildren()
         val service = getService() ?: return false
 
-        networkMonitor?.unregister()
+        val monitor = networkMonitor
         networkMonitor = null
-        currentVpnInterface = null
+        monitor?.unregister()
 
-        if (isRunning()) {
-            CoroutineScope(Dispatchers.IO).launch {
+        val stopJob = CoroutineScope(Dispatchers.IO).launch {
+            synchronized(reloadStopLock) {
+                currentVpnInterface = null
                 try {
-                    coreController.stopLoop()
+                    if (isRunning()) coreController.stopLoop()
                 } catch (e: Exception) {
                     LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to stop V2Ray loop", e)
+                }
+                try {
+                    CoreNativeManager.reconcileBrowserDialer("")
+                    browserDialer?.stop()
+                } catch (e: Exception) {
+                    LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to stop browser dialer", e)
+                } finally {
+                    browserDialer = null
                 }
             }
         }
 
-        // Close existing browser dialer
-        CoreNativeManager.reconcileBrowserDialer("")
-        if (browserDialer != null) {
-            browserDialer!!.stop()
-            browserDialer = null
-        }
-
         sessionStartedAt = 0L
-        MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_STOP_SUCCESS, "")
         NotificationManager.cancelNotification()
 
         try {
             service.unregisterReceiver(mMsgReceive)
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to unregister receiver", e)
+        }
+
+        if (afterCoreStopped == null) {
+            MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_STOP_SUCCESS, "")
+        } else {
+            CoroutineScope(Dispatchers.Main.immediate).launch {
+                stopJob.join()
+                afterCoreStopped()
+                MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_STOP_SUCCESS, "")
+            }
         }
 
         return true
@@ -256,8 +270,8 @@ object CoreServiceManager {
      *
      * @return True if the core is running again.
      */
-    private fun reloadCore(): Boolean {
-        if (isReloading) return false
+    private fun reloadCore(): Boolean = synchronized(reloadStopLock) {
+        if (networkMonitor == null || isReloading) return false
         val service = getService() ?: return false
         if (!isRunning()) return false
 

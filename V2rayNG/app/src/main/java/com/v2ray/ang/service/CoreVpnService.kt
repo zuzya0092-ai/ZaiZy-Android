@@ -33,6 +33,7 @@ class CoreVpnService : VpnService(), ServiceControl {
     private var isRunning = false
     private var tun2SocksService: Tun2SocksControl? = null
     private val isStartingLock = AtomicBoolean(false)
+    private val isStopping = AtomicBoolean(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -82,7 +83,7 @@ class CoreVpnService : VpnService(), ServiceControl {
         if (isSystemVpnStart) {
             unlockStart()
         }
-        if (!tryLockStart()) {
+        if (isStopping.get() || !tryLockStart()) {
             LogUtil.w(AppConfig.TAG, "StartCore-VPN: Start already in progress")
             return START_NOT_STICKY
         }
@@ -117,7 +118,7 @@ class CoreVpnService : VpnService(), ServiceControl {
     }
 
     override fun stopService() {
-        stopAllService(true)
+        stopAllService()
     }
 
     override fun vpnProtect(socket: Int): Boolean {
@@ -317,46 +318,30 @@ class CoreVpnService : VpnService(), ServiceControl {
         tun2SocksService?.startTun2Socks()
     }
 
-    private fun stopAllService(isForced: Boolean = true) {
-//        val configName = defaultDPreference.getPrefString(PREF_CURR_CONFIG_GUID, "")
-//        val emptyInfo = VpnNetworkInfo()
-//        val info = loadVpnNetworkInfo(configName, emptyInfo)!! + (lastNetworkInfo ?: emptyInfo)
-//        saveVpnNetworkInfo(configName, info)
+    private fun stopAllService() {
+        if (!isStopping.compareAndSet(false, true)) return
         unlockStart()
         isRunning = false
 
         tun2SocksService?.stopTun2Socks()
         tun2SocksService = null
-
         RootLanSharing.stopClientSharing(this)
 
-        CoreServiceManager.stopCoreLoop()
+        if (!CoreServiceManager.stopCoreLoop(afterCoreStopped = ::finishStopping)) {
+            finishStopping()
+        }
+    }
 
-        if (isForced) {
-            //stopSelf has to be called ahead of mInterface.close(). otherwise v2ray core cannot be stooped
-            //It's strage but true.
-            //This can be verified by putting stopself() behind and call stopLoop and startLoop
-            //in a row for several times. You will find that later created v2ray core report port in use
-            //which means the first v2ray core somehow failed to stop and release the port.
-            stopSelf()
-
-            // Add a small delay to allow the async core stop operation to complete
-            // before closing the VPN interface, preventing a race condition that can
-            // leave the VPN icon in the status bar after stopping the service.
-            try {
-                Thread.sleep(100)
-            } catch (e: InterruptedException) {
-                LogUtil.w(AppConfig.TAG, "StartCore-VPN: Sleep interrupted", e)
+    private fun finishStopping() {
+        // Preserve the stopSelf-before-close ordering for the native VPN interface.
+        stopSelf()
+        try {
+            if (::mInterface.isInitialized) {
+                mInterface.close()
+                LogUtil.i(AppConfig.TAG, "StartCore-VPN: VPN interface closed")
             }
-
-            try {
-                if (::mInterface.isInitialized) {
-                    mInterface.close()
-                    LogUtil.i(AppConfig.TAG, "StartCore-VPN: VPN interface closed")
-                }
-            } catch (e: Exception) {
-                LogUtil.e(AppConfig.TAG, "StartCore-VPN: Failed to close interface", e)
-            }
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "StartCore-VPN: Failed to close interface", e)
         }
     }
 
